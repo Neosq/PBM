@@ -363,12 +363,15 @@ end
 local function closePanel()
     panelOpen = false
     TweenService:Create(panel, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        Position = PANEL_START_POS, BackgroundTransparency = 0.7,
+        Position = PANEL_START_POS,
     }):Play()
     task.delay(0.15, function()
         panel.Visible               = false
         panel.Position              = PANEL_OPEN_POS
         panel.BackgroundTransparency = 0.1
+        for _, tb in ipairs(toolButtons) do
+            tb.btn.BackgroundTransparency = 0
+        end
         if guiVisible then toggleBtn.Visible = true end
     end)
 end
@@ -390,12 +393,12 @@ sizeCon(noneBtn)
 local noneBtnStroke = mkStroke(noneBtn, SELECTION_COLORS.None, 3)
 
 do
-    local HOLD_DRAG   = 1.2
-    local pressing    = false
-    local holdT       = 0
-    local dragging    = false
-    local touchInput  = nil
-    local dragOffset  = Vector2.new(0, 0)
+    local HOLD_DRAG  = 1.2
+    local pressing   = false
+    local holdT      = 0
+    local dragging   = false
+    local touchInput = nil
+    local dragOffset = Vector2.new(0, 0)
 
     noneBtn.InputBegan:Connect(function(input)
         if input.UserInputType ~= Enum.UserInputType.Touch and
@@ -404,10 +407,10 @@ do
         holdT      = 0
         dragging   = false
         touchInput = input
-        local pos  = noneBtn.Position
+        local abs  = noneBtn.AbsolutePosition
         dragOffset = Vector2.new(
-            input.Position.X - pos.X.Offset,
-            input.Position.Y - pos.Y.Offset
+            input.Position.X - (abs.X + noneBtn.AbsoluteSize.X * 0.5),
+            input.Position.Y - (abs.Y + noneBtn.AbsoluteSize.Y * 0.5)
         )
     end)
 
@@ -423,9 +426,10 @@ do
         if input.UserInputType ~= Enum.UserInputType.Touch and
            input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
         local vp = workspace.CurrentCamera.ViewportSize
-        local nx  = math.clamp(input.Position.X - dragOffset.X, 29, vp.X - 29)
-        local ny  = math.clamp(input.Position.Y - dragOffset.Y, 29, vp.Y - 29)
-        noneBtn.Position = UDim2.new(0, nx, 0, ny)
+        local nx = math.clamp(input.Position.X - dragOffset.X, 29, vp.X - 29)
+        local ny = math.clamp(input.Position.Y - dragOffset.Y, 29, vp.Y - 29)
+        noneBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+        noneBtn.Position    = UDim2.new(0, nx, 0, ny)
     end)
 
     RunService.RenderStepped:Connect(function(dt)
@@ -581,6 +585,7 @@ for i, tb in ipairs(toolButtons) do
         end
         closePanel()
         task.defer(updateUI)
+        if _G.PBM then _G.PBM.selectTool(selectedTool) end
     end)
 end
 
