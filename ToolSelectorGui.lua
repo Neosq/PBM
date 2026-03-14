@@ -127,11 +127,16 @@ sizeCon(mainDash)
 
 local function setMainIcon(tool)
     if tool then
-        mainIcon.Image           = tool.sprite
-        mainIcon.ImageRectOffset = tool.rectOffset
-        mainIcon.ImageRectSize   = tool.rectSize
-        mainIcon.Visible         = true
-        mainDash.Visible         = false
+        mainIcon.Image   = tool.sprite
+        if tool.rectOffset then
+            mainIcon.ImageRectOffset = tool.rectOffset
+            mainIcon.ImageRectSize   = tool.rectSize
+        else
+            mainIcon.ImageRectOffset = Vector2.new(0, 0)
+            mainIcon.ImageRectSize   = Vector2.new(0, 0)
+        end
+        mainIcon.Visible = true
+        mainDash.Visible = false
     else
         mainIcon.Visible = false
         mainDash.Visible = true
@@ -376,133 +381,19 @@ local function closePanel()
     end)
 end
 
-local noneBtn = Instance.new("TextButton")
-noneBtn.Size             = UDim2.new(0, 58, 0, 58)
-noneBtn.AnchorPoint      = Vector2.new(0.5, 0.5)
-noneBtn.Position         = UDim2.new(1, -45, 1, -91)
-noneBtn.BackgroundColor3 = Color3.fromRGB(12, 8, 24)
-noneBtn.BorderSizePixel  = 0
-noneBtn.Text             = "None"
-noneBtn.TextColor3       = Color3.fromRGB(200, 195, 215)
-noneBtn.Font             = Enum.Font.GothamBold
-noneBtn.TextSize         = 14
-noneBtn.ZIndex           = 15
-noneBtn.Parent           = screenGui
-corner(noneBtn, 999)
-sizeCon(noneBtn)
-local noneBtnStroke = mkStroke(noneBtn, SELECTION_COLORS.None, 3)
-
-do
-    local HOLD_DRAG  = 1.2
-    local pressing   = false
-    local holdT      = 0
-    local dragging   = false
-    local touchInput = nil
-    local dragOffset = Vector2.new(0, 0)
-
-    noneBtn.InputBegan:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.Touch and
-           input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        pressing   = true
-        holdT      = 0
-        dragging   = false
-        touchInput = input
-        local abs  = noneBtn.AbsolutePosition
-        dragOffset = Vector2.new(
-            input.Position.X - (abs.X + noneBtn.AbsoluteSize.X * 0.5),
-            input.Position.Y - (abs.Y + noneBtn.AbsoluteSize.Y * 0.5)
-        )
-    end)
-
-    noneBtn.InputEnded:Connect(function(input)
-        if input ~= touchInput then return end
-        pressing = false
-        dragging = false
-        holdT    = 0
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if not dragging or input ~= touchInput then return end
-        if input.UserInputType ~= Enum.UserInputType.Touch and
-           input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-        local vp = workspace.CurrentCamera.ViewportSize
-        local nx = math.clamp(input.Position.X - dragOffset.X, 29, vp.X - 29)
-        local ny = math.clamp(input.Position.Y - dragOffset.Y, 29, vp.Y - 29)
-        noneBtn.AnchorPoint = Vector2.new(0.5, 0.5)
-        noneBtn.Position    = UDim2.new(0, nx, 0, ny)
-    end)
-
-    RunService.RenderStepped:Connect(function(dt)
-        if pressing and not dragging then
-            holdT = holdT + dt
-            if holdT >= HOLD_DRAG then
-                dragging = true
-            end
-        end
-    end)
-end
-
-local selectionBox = nil
-local hoveredModel = nil
-
-local function setSelectionBox(model)
-    if selectionBox then selectionBox:Destroy(); selectionBox = nil end
-    if not model or not selectedTool then return end
-    local adorn = model:FindFirstChild("ColorPart")
-        or model:FindFirstChild("MouseFilterPart")
-        or model
-    selectionBox = Instance.new("SelectionBox")
-    selectionBox.Color3              = SELECTION_COLORS[selectedTool] or SELECTION_COLORS.None
-    selectionBox.LineThickness       = 0.05
-    selectionBox.SurfaceTransparency = 1
-    selectionBox.Adornee             = adorn
-    selectionBox.Parent              = workspace
-end
+local selectionBox  = nil
+local hoveredModel  = nil
 
 local function clearSelectionBox()
     if selectionBox then selectionBox:Destroy(); selectionBox = nil end
 end
-
-local function getModelUnderInput(x, y)
-    local unitRay = workspace.CurrentCamera:ScreenPointToRay(x, y)
-    local params  = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Include
-    local bm = workspace:FindFirstChild("BuildModel")
-    if not bm then return nil end
-    params.FilterDescendantsInstances = {bm}
-    local res = workspace:Raycast(unitRay.Origin, unitRay.Direction * 500, params)
-    if not res then return nil end
-    local part = res.Instance
-    while part and part.Parent ~= bm do part = part.Parent end
-    return part
-end
-
-local mouse = player:GetMouse()
-RunService.RenderStepped:Connect(function()
-    if not selectedTool then return end
-    local model = getModelUnderInput(mouse.X, mouse.Y)
-    if model ~= hoveredModel then
-        hoveredModel = model
-        setSelectionBox(model)
-    end
-end)
-
-UIS.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if not selectedTool then return end
-    if input.UserInputType ~= Enum.UserInputType.MouseButton1
-    and input.UserInputType ~= Enum.UserInputType.Touch then return end
-    local model = getModelUnderInput(input.Position.X, input.Position.Y)
-    if not model then return end
-    setSelectionBox(model)
-end)
 
 local gridValue = 1
 
 local gridFrame = Instance.new("Frame")
 gridFrame.Size                  = UDim2.new(0, 80, 0, 30)
 gridFrame.AnchorPoint           = Vector2.new(0, 1)
-gridFrame.Position              = UDim2.new(0, 16, 1, -120)
+gridFrame.Position              = UDim2.new(0, 16, 1, -80)
 gridFrame.BackgroundTransparency = 1
 gridFrame.BorderSizePixel       = 0
 gridFrame.ZIndex                = 15
@@ -539,15 +430,10 @@ gridBox.FocusLost:Connect(function()
         gridValue = num
     end
     gridBox.Text = tostring(gridValue)
+    if _G.PBM then _G.PBM.applyStep(gridValue / 10) end
 end)
 
 local function updateUI()
-    local name = selectedTool or "None"
-    noneBtn.Text = name
-    local strokeCol = SELECTION_COLORS[name] or SELECTION_COLORS.None
-    TweenService:Create(noneBtnStroke, TweenInfo.new(0.2), { Color = strokeCol }):Play()
-    local textCol = SUBTITLE_COLORS[name] or Color3.fromRGB(200, 195, 215)
-    TweenService:Create(noneBtn, TweenInfo.new(0.2), { TextColor3 = textCol }):Play()
     if not selectedTool then
         clearSelectionBox()
         gridFrame.Visible = false
