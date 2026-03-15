@@ -218,46 +218,6 @@ for i, tool in ipairs(TOOLS) do
     toolButtons[i] = { btn=btn, tool=tool }
 end
 
-local cpBtn = Instance.new("TextButton")
-cpBtn.Size             = UDim2.new(0, BTN_SIZE, 0, BTN_SIZE)
-cpBtn.BackgroundColor3 = C.btnNormal
-cpBtn.BorderSizePixel  = 0
-cpBtn.Text             = ""
-cpBtn.ZIndex           = 10
-cpBtn.Parent           = panel
-corner(cpBtn, 8); mkStroke(cpBtn)
-grad(cpBtn, Color3.fromRGB(100,72,175), Color3.fromRGB(62,42,118))
-local cpImg = Instance.new("ImageLabel")
-cpImg.Size                   = UDim2.new(0, 40, 0, 40)
-cpImg.AnchorPoint            = Vector2.new(0.5, 0.5)
-cpImg.Position               = UDim2.new(0.5, 0, 0.5, 0)
-cpImg.BackgroundTransparency = 1
-cpImg.Image                  = SPRITE
-cpImg.ImageRectOffset        = Vector2.new(432, 0)
-cpImg.ImageRectSize          = Vector2.new(72, 72)
-cpImg.ZIndex                 = 11
-cpImg.Parent                 = cpBtn
-cpBtn.MouseButton1Click:Connect(function()
-    panelOpen = false
-    panel.Visible = false
-    panel.Position = PANEL_OPEN_POS
-    panel.BackgroundTransparency = 0.1
-    if guiVisible then toggleBtn.Visible = true end
-    TweenService:Create(anchor, TW_HIDE, { Position = HIDDEN_POS }):Play()
-    task.delay(0.22, function()
-        guiVisible = false
-        toggleBtn.Parent      = screenGui
-        toggleBtn.AnchorPoint = Vector2.new(0.5, 0)
-        toggleBtn.Position    = UDim2.new(0.5, 0, 0, 4)
-        toggleBtn.Text        = "V"
-    end)
-    if not _G.CopyPasteTool then
-        task.spawn(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Neosq/PBM/main/CopyPasteTool.lua"))()
-        end)
-    end
-end)
-
 local subFrame = Instance.new("Frame")
 subFrame.Size                  = UDim2.new(0, 0, 0, 34)
 subFrame.AutomaticSize         = Enum.AutomaticSize.X
@@ -352,6 +312,46 @@ toggleBtn.ZIndex           = 12
 toggleBtn.Parent           = anchor
 corner(toggleBtn, 8); mkStroke(toggleBtn, C.btnBorder, 1)
 sizeCon(toggleBtn)
+
+local cpBtn = Instance.new("TextButton")
+cpBtn.Size             = UDim2.new(0, BTN_SIZE, 0, BTN_SIZE)
+cpBtn.BackgroundColor3 = C.btnNormal
+cpBtn.BorderSizePixel  = 0
+cpBtn.Text             = ""
+cpBtn.ZIndex           = 10
+cpBtn.Parent           = panel
+corner(cpBtn, 8); mkStroke(cpBtn)
+grad(cpBtn, Color3.fromRGB(100,72,175), Color3.fromRGB(62,42,118))
+local cpImg = Instance.new("ImageLabel")
+cpImg.Size                   = UDim2.new(0, 40, 0, 40)
+cpImg.AnchorPoint            = Vector2.new(0.5, 0.5)
+cpImg.Position               = UDim2.new(0.5, 0, 0.5, 0)
+cpImg.BackgroundTransparency = 1
+cpImg.Image                  = SPRITE
+cpImg.ImageRectOffset        = Vector2.new(432, 0)
+cpImg.ImageRectSize          = Vector2.new(72, 72)
+cpImg.ZIndex                 = 11
+cpImg.Parent                 = cpBtn
+cpBtn.MouseButton1Click:Connect(function()
+    panelOpen = false
+    panel.Visible = false
+    panel.Position = PANEL_OPEN_POS
+    panel.BackgroundTransparency = 0.1
+    if guiVisible then toggleBtn.Visible = true end
+    TweenService:Create(anchor, TW_HIDE, { Position = HIDDEN_POS }):Play()
+    task.delay(0.22, function()
+        guiVisible = false
+        toggleBtn.Parent      = screenGui
+        toggleBtn.AnchorPoint = Vector2.new(0.5, 0)
+        toggleBtn.Position    = UDim2.new(0.5, 0, 0, 4)
+        toggleBtn.Text        = "V"
+    end)
+    if not _G.CopyPasteTool then
+        task.spawn(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Neosq/PBM/main/CopyPasteTool.lua"))()
+        end)
+    end
+end)
 
 local function openPanel()
     panelOpen = true
