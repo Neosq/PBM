@@ -348,7 +348,12 @@ cpBtn.MouseButton1Click:Connect(function()
     end)
     if not _G.CopyPasteTool then
         task.spawn(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Neosq/PBM/main/CopyPasteTool.lua"))()
+            task.wait()
+            if not _G.WindUI then
+                _G.WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/orialdev/WindUI-Boreal/main/WindUI%20Boreal"))()
+            end
+            task.wait()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Neosq/PBM/refs/heads/main/CopyPasteTool.lua"))()
         end)
     end
 end)
