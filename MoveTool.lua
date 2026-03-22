@@ -122,27 +122,23 @@ local function buildPreview(model)
     end
 end
 
-local multiGhosts = {}  -- {model, parts[]} for multi preview
+local multiLiveParts = {}  -- managed separately to avoid M reference before declaration
+local multiGhosts    = {}  -- {model, parts[], origTransp} for multi preview
 
 local function destroyMultiGhosts()
     for _, entry in ipairs(multiGhosts) do
         for _, p in ipairs(entry.parts) do
             if p and p.Parent then p:Destroy() end
         end
-        restoreOriginal()
-        for _, desc in ipairs(entry.model:GetDescendants()) do
-            if desc:IsA("BasePart") and entry.origTransp[desc] ~= nil then
-                desc.Transparency = entry.origTransp[desc]
-            end
+        for part, tr in pairs(entry.origTransp) do
+            if part and part.Parent then part.Transparency = tr end
         end
     end
     multiGhosts = {}
-    -- Restore SelectionBox adornees back to liveParts (now at updated positions)
-    if M._multiLiveParts then
-        for _, lpe in ipairs(M._multiLiveParts) do
-            if lpe.box and lpe.box.Parent and lpe.part and lpe.part.Parent then
-                lpe.box.Adornee = lpe.part
-            end
+    -- Restore SelectionBox adornees back to liveParts
+    for _, lpe in ipairs(multiLiveParts) do
+        if lpe.box and lpe.box.Parent and lpe.part and lpe.part.Parent then
+            lpe.box.Adornee = lpe.part
         end
     end
 end
@@ -192,8 +188,8 @@ local function updatePreviewMulti(offset)
         end
     end
     -- Update liveParts and re-adorn SelectionBox to first ghost of each model
-    if M._multiLiveParts then
-        for _, lpe in ipairs(M._multiLiveParts) do
+    if multiLiveParts then
+        for _, lpe in ipairs(multiLiveParts) do
             -- Find first ghost for this model
             for _, entry in ipairs(multiGhosts) do
                 if entry.model == lpe.model and #entry.parts > 0 then
@@ -289,7 +285,7 @@ local function spawnHandles(model)
 end
 
 RunService.RenderStepped:Connect(function()
-    if selectedBlock and #handleButtons > 0 then
+    if selectedBlock and selectedBlock.Parent and #handleButtons > 0 then
         local cf = getModelCF(selectedBlock)
         local sz = getModelSize(selectedBlock)
         if cf then
@@ -351,8 +347,8 @@ UIS.InputEnded:Connect(function(input)
                 M._multiAnchor.CFrame = M._multiAnchor.CFrame + previewOffset
             end
             -- Update livePart positions immediately with offset
-            if M._multiLiveParts then
-                for _, lpe in ipairs(M._multiLiveParts) do
+            if multiLiveParts then
+                for _, lpe in ipairs(multiLiveParts) do
                     if lpe.part and lpe.part.Parent then
                         lpe.part.CFrame = lpe.part.CFrame + previewOffset
                     end
@@ -411,7 +407,7 @@ function M.activateMulti(models)
     M._multiBlocks=models
     M._multiAnchor=anchor
     -- Create a livePart+liveBox per block
-    M._multiLiveParts = {}
+    multiLiveParts = {}
     M._multiLiveBoxes = {}
     for _, m in ipairs(models) do
         local ref = m:FindFirstChild("MouseFilterPart") or m:FindFirstChild("ColorPart")
@@ -424,7 +420,7 @@ function M.activateMulti(models)
             local lb = Instance.new("SelectionBox")
             lb.Color3=Color3.fromRGB(140,90,220); lb.LineThickness=0.06
             lb.Adornee=lp; lb.Parent=workspace
-            table.insert(M._multiLiveParts, {part=lp, box=lb, model=m})
+            table.insert(multiLiveParts, {part=lp, box=lb, model=m})
         end
     end
     M.onPreviewUpdate = nil
@@ -436,12 +432,12 @@ function M.deactivate()
     if M._liveBox  and M._liveBox.Parent  then M._liveBox:Destroy()  end
     if M._livePart and M._livePart.Parent then M._livePart:Destroy() end
     if M._multiAnchor and M._multiAnchor.Parent then M._multiAnchor:Destroy() end
-    if M._multiLiveParts then
-        for _, entry in ipairs(M._multiLiveParts) do
+    if multiLiveParts then
+        for _, entry in ipairs(multiLiveParts) do
             if entry.box and entry.box.Parent then entry.box:Destroy() end
             if entry.part and entry.part.Parent then entry.part:Destroy() end
         end
-        M._multiLiveParts = {}
+        multiLiveParts = {}
         M._multiLiveBoxes = {}
     end
     M._liveBox=nil; M._livePart=nil
