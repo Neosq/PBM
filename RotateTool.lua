@@ -232,13 +232,11 @@ local function updatePreview(model, axDef, totalSteps)
 end
 
 local function commitRotate()
-    if not selectedBlock or not previewCF then return end
-    pcall(function() RS.Functions.CommitMove:InvokeServer(selectedBlock, previewCF) end)
+    if not selectedBlock then return end
     if M._multiBlocks and cachedAxDef and lastSteps ~= 0 then
         local angle = math.rad(rotateStep * lastSteps)
         local rotCF = CFrame.fromAxisAngle(cachedAxDef.rotAxis, angle)
         for _, block in ipairs(M._multiBlocks) do
-            if block == selectedBlock then continue end
             local cf = getModelCF(block)
             if cf then
                 local pos = cf.Position
@@ -246,6 +244,8 @@ local function commitRotate()
                 pcall(function() RS.Functions.CommitMove:InvokeServer(block, newCF) end)
             end
         end
+    elseif previewCF then
+        pcall(function() RS.Functions.CommitMove:InvokeServer(selectedBlock, previewCF) end)
     end
 end
 
@@ -449,7 +449,22 @@ UIS.InputEnded:Connect(function(input)
     if input.UserInputType ~= Enum.UserInputType.Touch and
        input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
     if activeTouchId ~= nil and input ~= activeTouchId then return end
-    if isDragging and lastSteps ~= 0 then commitRotate() end
+    if isDragging and lastSteps ~= 0 then
+        commitRotate()
+        -- Update livePart positions to match new rotated positions
+        if M._multiBlocks and M._multiLiveParts and cachedAxDef then
+            local angle = math.rad(rotateStep * lastSteps)
+            local rotCF = CFrame.fromAxisAngle(cachedAxDef.rotAxis, angle)
+            for _, lpe in ipairs(M._multiLiveParts) do
+                local cf = getModelCF(lpe.model)
+                if cf and lpe.part and lpe.part.Parent then
+                    local pos = cf.Position
+                    local newCF = CFrame.new(pos) * rotCF * (cf - pos)
+                    lpe.part.CFrame = newCF
+                end
+            end
+        end
+    end
     destroyPreview()
     if activeHandle and activeHandle.Parent then
         activeHandle.BackgroundTransparency = 0.1
