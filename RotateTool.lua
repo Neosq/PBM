@@ -171,7 +171,6 @@ end
 local function commitRotate()
     if not selectedBlock or not previewCF then return end
     pcall(function() RS.Functions.CommitMove:InvokeServer(selectedBlock, previewCF) end)
-    -- Also rotate all other multi blocks by the same angle/axis
     if M._multiBlocks and cachedAxDef and lastSteps ~= 0 then
         local angle = math.rad(rotateStep * lastSteps)
         local rotCF = CFrame.fromAxisAngle(cachedAxDef.rotAxis, angle)
