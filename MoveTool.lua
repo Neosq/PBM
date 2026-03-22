@@ -339,13 +339,11 @@ UIS.InputEnded:Connect(function(input)
             if M._multiAnchor then
                 M._multiAnchor.CFrame = M._multiAnchor.CFrame + previewOffset
             end
-            -- Sync liveParts to new positions immediately using offset
+            -- Update livePart positions immediately with offset
             if M._multiLiveParts then
                 for _, lpe in ipairs(M._multiLiveParts) do
-                    local ref = lpe.model:FindFirstChild("MouseFilterPart")
-                                or lpe.model:FindFirstChild("ColorPart")
-                    if ref and lpe.part and lpe.part.Parent then
-                        lpe.part.CFrame = ref.CFrame + previewOffset
+                    if lpe.part and lpe.part.Parent then
+                        lpe.part.CFrame = lpe.part.CFrame + previewOffset
                     end
                 end
             end
