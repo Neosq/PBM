@@ -66,6 +66,15 @@ local function restoreOriginal()
     originalTransp = {}
 end
 
+local multiOrigTransp = {}
+
+local function restoreMultiOriginal()
+    for part, tr in pairs(multiOrigTransp) do
+        if part and part.Parent then part.Transparency = tr end
+    end
+    multiOrigTransp = {}
+end
+
 local function getVisualParts(model)
     local out = {}
     for _, desc in ipairs(model:GetDescendants()) do
@@ -85,6 +94,7 @@ local function destroyPreview()
     previewSize  = nil
     previewCF    = nil
     restoreOriginal()
+    restoreMultiOriginal()
 end
 
 local function buildPreview(model)
@@ -109,40 +119,112 @@ local function buildPreview(model)
     end
 end
 
+local function buildPreviewMulti(models)
+    destroyPreview()
+    multiOrigTransp = {}
+    for _, model in ipairs(models) do
+        for _, desc in ipairs(model:GetDescendants()) do
+            if desc:IsA("BasePart") then
+                multiOrigTransp[desc] = desc.Transparency
+                desc.Transparency = 1
+            end
+        end
+        for _, desc in ipairs(model:GetDescendants()) do
+            if desc:IsA("BasePart") and desc.Name ~= "MouseFilterPart"
+               and (multiOrigTransp[desc] or 0) < 1 then
+                local ghost = desc:Clone()
+                for _, child in ipairs(ghost:GetChildren()) do
+                    if not (child:IsA("SpecialMesh") or child:IsA("SurfaceAppearance")
+                        or child:IsA("Decal") or child:IsA("Texture")) then
+                        child:Destroy()
+                    end
+                end
+                ghost.Anchored=true; ghost.CanCollide=false; ghost.CastShadow=false
+                ghost.Transparency=multiOrigTransp[desc]
+                ghost.Name="ResizeGhost"; ghost.Parent=workspace
+                table.insert(previewParts, ghost)
+            end
+        end
+    end
+end
+
+local function restoreMultiOriginal()
+    for part, tr in pairs(multiOrigTransp) do
+        if part and part.Parent then part.Transparency = tr end
+    end
+    multiOrigTransp = {}
+end
+
 local M = {}
 
 local function updatePreview(handleData, totalSteps)
     if not resizeBlock or #previewParts == 0 then return end
-    local cp = resizeBlock:FindFirstChild("ColorPart")
-    if not cp then return end
-    local axis     = handleData.axis
-    local origSize = cp.Size
-    local change   = totalSteps * resizeStep
-    local newSize  = Vector3.new(
-        axis == "X" and math.max(4.5, origSize.X + change) or origSize.X,
-        axis == "Y" and math.max(4.5, origSize.Y + change) or origSize.Y,
-        axis == "Z" and math.max(4.5, origSize.Z + change) or origSize.Z
-    )
-    local actualChange
-    if axis == "X" then actualChange = newSize.X - origSize.X
-    elseif axis == "Y" then actualChange = newSize.Y - origSize.Y
-    else actualChange = newSize.Z - origSize.Z end
-    local newCF = cp.CFrame * CFrame.new(handleData.dir * (actualChange * 0.5))
-    previewSize = newSize
-    previewCF   = newCF
-    local srcs = getVisualParts(resizeBlock)
-    for i, ghost in ipairs(previewParts) do
-        local src = srcs[i]
-        if not src then continue end
-        if src == cp then
-            ghost.Size   = newSize
-            ghost.CFrame = newCF
-        else
-            ghost.CFrame = newCF * cp.CFrame:ToObjectSpace(src.CFrame)
+    local axis   = handleData.axis
+    local change = totalSteps * resizeStep
+    if M._multiBlocks then
+        -- Update preview for all multi blocks
+        local ghostIdx = 1
+        for _, block in ipairs(M._multiBlocks) do
+            local bcp = block:FindFirstChild("ColorPart")
+            if not bcp then continue end
+            local bOrigSize = bcp.Size
+            local bNewSize = Vector3.new(
+                axis=="X" and math.max(0.1, bOrigSize.X+change) or bOrigSize.X,
+                axis=="Y" and math.max(0.1, bOrigSize.Y+change) or bOrigSize.Y,
+                axis=="Z" and math.max(0.1, bOrigSize.Z+change) or bOrigSize.Z
+            )
+            local bActual = axis=="X" and (bNewSize.X-bOrigSize.X)
+                         or axis=="Y" and (bNewSize.Y-bOrigSize.Y)
+                         or (bNewSize.Z-bOrigSize.Z)
+            local bNewCF = bcp.CFrame * CFrame.new(handleData.dir * (bActual*0.5))
+            -- Update ghosts for this block
+            local srcs = {}
+            for _, desc in ipairs(block:GetDescendants()) do
+                if desc:IsA("BasePart") and desc.Name ~= "MouseFilterPart"
+                   and (multiOrigTransp[desc] or 0) < 1 then
+                    table.insert(srcs, desc)
+                end
+            end
+            for i, src in ipairs(srcs) do
+                local ghost = previewParts[ghostIdx]
+                if not ghost then break end
+                if src == bcp then
+                    ghost.Size   = bNewSize
+                    ghost.CFrame = bNewCF
+                else
+                    ghost.CFrame = bNewCF * bcp.CFrame:ToObjectSpace(src.CFrame)
+                end
+                ghostIdx = ghostIdx + 1
+            end
+            -- Store last block's preview for commit
+            if block == resizeBlock then
+                previewSize = bNewSize
+                previewCF   = bNewCF
+            end
         end
-    end
-    if M.onPreviewUpdate then
-        M.onPreviewUpdate(newCF, newSize)
+    else
+        local cp = resizeBlock:FindFirstChild("ColorPart")
+        if not cp then return end
+        local origSize = cp.Size
+        local newSize  = Vector3.new(
+            axis=="X" and math.max(0.1, origSize.X+change) or origSize.X,
+            axis=="Y" and math.max(0.1, origSize.Y+change) or origSize.Y,
+            axis=="Z" and math.max(0.1, origSize.Z+change) or origSize.Z
+        )
+        local actualChange
+        if axis=="X" then actualChange=newSize.X-origSize.X
+        elseif axis=="Y" then actualChange=newSize.Y-origSize.Y
+        else actualChange=newSize.Z-origSize.Z end
+        local newCF = cp.CFrame * CFrame.new(handleData.dir * (actualChange*0.5))
+        previewSize = newSize
+        previewCF   = newCF
+        local srcs = getVisualParts(resizeBlock)
+        for i, ghost in ipairs(previewParts) do
+            local src = srcs[i]; if not src then continue end
+            if src == cp then ghost.Size=newSize; ghost.CFrame=newCF
+            else ghost.CFrame=newCF*cp.CFrame:ToObjectSpace(src.CFrame) end
+        end
+        if M.onPreviewUpdate then M.onPreviewUpdate(newCF, newSize) end
     end
 end
 
@@ -213,7 +295,11 @@ local function spawnHandles(model)
                 if sd.Magnitude > 1 then cachedScreenDir = sd / sd.Magnitude end
             end
             btn.BackgroundTransparency = 0.0
-            buildPreview(resizeBlock)
+            if M._multiBlocks then
+                buildPreviewMulti(M._multiBlocks)
+            else
+                buildPreview(resizeBlock)
+            end
         end)
         table.insert(handleButtons, {button=btn, axis=axDef.axis, sign=axDef.sign, dir=axDef.dir})
     end
