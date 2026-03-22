@@ -342,6 +342,13 @@ function M.deactivate()
     if resizeBox then resizeBox:Destroy(); resizeBox = nil end
     if liveBox   then liveBox:Destroy();  liveBox   = nil end
     if livePart  then livePart:Destroy(); livePart  = nil end
+    if M._multiLiveParts then
+        for _, lpe in ipairs(M._multiLiveParts) do
+            if lpe.box  and lpe.box.Parent  then lpe.box:Destroy()  end
+            if lpe.part and lpe.part.Parent then lpe.part:Destroy() end
+        end
+        M._multiLiveParts = {}
+    end
     M.onPreviewUpdate = nil
     M._multiBlocks = nil
     clearHandles()
@@ -352,6 +359,23 @@ function M.activateMulti(models)
     if not models or #models==0 then return end
     M._multiBlocks = models
     M.activate(models[#models])
+    -- Add liveParts for non-active blocks
+    M._multiLiveParts = M._multiLiveParts or {}
+    for i = 1, #models - 1 do
+        local m = models[i]
+        local ref = m:FindFirstChild("MouseFilterPart") or m:FindFirstChild("ColorPart")
+                    or m:FindFirstChildWhichIsA("BasePart")
+        if ref and ref:IsA("BasePart") then
+            local lp = Instance.new("Part")
+            lp.Size=ref.Size; lp.CFrame=ref.CFrame
+            lp.Anchored=true; lp.CanCollide=false; lp.Transparency=1
+            lp.Parent=workspace
+            local lb = Instance.new("SelectionBox")
+            lb.Color3=Color3.fromRGB(255,160,50); lb.LineThickness=0.06
+            lb.Adornee=lp; lb.Parent=workspace
+            table.insert(M._multiLiveParts, {part=lp, box=lb, model=m})
+        end
+    end
 end
 
 function M.setStep(step)
