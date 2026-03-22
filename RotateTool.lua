@@ -156,35 +156,6 @@ local function buildPreview(model)
     end
 end
 
-local M = {}
-    destroyPreview()
-    multiOrigTransp = {}
-    for _, model in ipairs(models) do
-        for _, desc in ipairs(model:GetDescendants()) do
-            if desc:IsA("BasePart") then
-                multiOrigTransp[desc] = desc.Transparency
-                desc.Transparency = 1
-            end
-        end
-        for _, desc in ipairs(model:GetDescendants()) do
-            if desc:IsA("BasePart") and desc.Name ~= "MouseFilterPart"
-               and (multiOrigTransp[desc] or 0) < 1 then
-                local ghost = desc:Clone()
-                for _, child in ipairs(ghost:GetChildren()) do
-                    if not (child:IsA("SpecialMesh") or child:IsA("SurfaceAppearance")
-                        or child:IsA("Decal") or child:IsA("Texture")) then
-                        child:Destroy()
-                    end
-                end
-                ghost.Anchored=true; ghost.CanCollide=false; ghost.CastShadow=false
-                ghost.Transparency=multiOrigTransp[desc]
-                ghost.Name="RotateGhost"; ghost.Parent=workspace
-                table.insert(previewParts, ghost)
-            end
-        end
-    end
-end
-
 local function buildPreviewMulti(models)
     destroyPreview()
     multiOrigTransp = {}
