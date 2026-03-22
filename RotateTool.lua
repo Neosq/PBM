@@ -429,7 +429,10 @@ function M.activateMulti(models)
 end
 
 function M.setStep(step)
-    rotateStep = step
+end
+
+function M.setRotateStep(deg)
+    rotateStep = deg
 end
 
 _G.RotateTool = M
