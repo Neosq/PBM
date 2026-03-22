@@ -184,6 +184,16 @@ local function updatePreviewMulti(offset)
             if srcs[i] then ghost.CFrame = srcs[i].CFrame + offset end
         end
     end
+    -- Move liveParts (selection box adornees) with offset
+    if M._multiLiveParts then
+        for _, lpe in ipairs(M._multiLiveParts) do
+            local ref = lpe.model:FindFirstChild("MouseFilterPart")
+                        or lpe.model:FindFirstChild("ColorPart")
+            if ref and lpe.part and lpe.part.Parent then
+                lpe.part.CFrame = ref.CFrame + offset
+            end
+        end
+    end
 end
 
 local M = {}
@@ -371,14 +381,11 @@ end
 function M.activateMulti(models)
     if not models or #models==0 then return end
     M.deactivate()
-    -- Compute center of all models
     local sumPos = Vector3.new(0,0,0)
     for _, m in ipairs(models) do
-        local cf = getModelCF(m)
-        if cf then sumPos=sumPos+cf.Position end
+        local cf = getModelCF(m); if cf then sumPos=sumPos+cf.Position end
     end
     local center = sumPos / #models
-    -- Create a dummy anchor part at center for handle positioning
     local anchor = Instance.new("Part")
     anchor.Size=Vector3.new(4.5,4.5,4.5); anchor.CFrame=CFrame.new(center)
     anchor.Anchored=true; anchor.CanCollide=false; anchor.Transparency=1
@@ -386,6 +393,23 @@ function M.activateMulti(models)
     selectedBlock=anchor
     M._multiBlocks=models
     M._multiAnchor=anchor
+    -- Create a livePart+liveBox per block
+    M._multiLiveParts = {}
+    M._multiLiveBoxes = {}
+    for _, m in ipairs(models) do
+        local ref = m:FindFirstChild("MouseFilterPart") or m:FindFirstChild("ColorPart")
+                    or m:FindFirstChildWhichIsA("BasePart")
+        if ref and ref:IsA("BasePart") then
+            local lp = Instance.new("Part")
+            lp.Size=ref.Size; lp.CFrame=ref.CFrame
+            lp.Anchored=true; lp.CanCollide=false; lp.Transparency=1
+            lp.Parent=workspace
+            local lb = Instance.new("SelectionBox")
+            lb.Color3=Color3.fromRGB(140,90,220); lb.LineThickness=0.06
+            lb.Adornee=lp; lb.Parent=workspace
+            table.insert(M._multiLiveParts, {part=lp, box=lb, model=m})
+        end
+    end
     M.onPreviewUpdate=nil
     spawnHandles(anchor)
 end
@@ -395,6 +419,14 @@ function M.deactivate()
     if M._liveBox  and M._liveBox.Parent  then M._liveBox:Destroy()  end
     if M._livePart and M._livePart.Parent then M._livePart:Destroy() end
     if M._multiAnchor and M._multiAnchor.Parent then M._multiAnchor:Destroy() end
+    if M._multiLiveParts then
+        for _, entry in ipairs(M._multiLiveParts) do
+            if entry.box and entry.box.Parent then entry.box:Destroy() end
+            if entry.part and entry.part.Parent then entry.part:Destroy() end
+        end
+        M._multiLiveParts = {}
+        M._multiLiveBoxes = {}
+    end
     M._liveBox=nil; M._livePart=nil
     M._multiBlocks=nil; M._multiAnchor=nil
     M.onPreviewUpdate=nil
