@@ -130,7 +130,6 @@ local function destroyMultiGhosts()
             if p and p.Parent then p:Destroy() end
         end
         restoreOriginal()
-        -- restore each model
         for _, desc in ipairs(entry.model:GetDescendants()) do
             if desc:IsA("BasePart") and entry.origTransp[desc] ~= nil then
                 desc.Transparency = entry.origTransp[desc]
@@ -138,6 +137,14 @@ local function destroyMultiGhosts()
         end
     end
     multiGhosts = {}
+    -- Restore SelectionBox adornees back to liveParts (now at updated positions)
+    if M._multiLiveParts then
+        for _, lpe in ipairs(M._multiLiveParts) do
+            if lpe.box and lpe.box.Parent and lpe.part and lpe.part.Parent then
+                lpe.box.Adornee = lpe.part
+            end
+        end
+    end
 end
 
 local function buildPreviewMulti(models)
@@ -184,13 +191,17 @@ local function updatePreviewMulti(offset)
             if srcs[i] then ghost.CFrame = srcs[i].CFrame + offset end
         end
     end
-    -- Move liveParts (selection box adornees) with offset
+    -- Update liveParts and re-adorn SelectionBox to first ghost of each model
     if M._multiLiveParts then
         for _, lpe in ipairs(M._multiLiveParts) do
-            local ref = lpe.model:FindFirstChild("MouseFilterPart")
-                        or lpe.model:FindFirstChild("ColorPart")
-            if ref and lpe.part and lpe.part.Parent then
-                lpe.part.CFrame = ref.CFrame + offset
+            -- Find first ghost for this model
+            for _, entry in ipairs(multiGhosts) do
+                if entry.model == lpe.model and #entry.parts > 0 then
+                    if lpe.box and lpe.box.Parent then
+                        lpe.box.Adornee = entry.parts[1]
+                    end
+                    break
+                end
             end
         end
     end
