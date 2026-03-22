@@ -15,7 +15,7 @@ local isDragging      = false
 local activeHandle    = nil
 local activeTouchId   = nil
 local dragStartScreen = nil
-local lastDragSteps   = 0
+local lastHandleData  = nil
 local DRAG_SENS       = 0.08
 local DRAG_THRESHOLD  = 8
 local cachedScreenDir = nil
@@ -253,6 +253,7 @@ UIS.InputChanged:Connect(function(input)
         lastDragSteps = total
         for _, h in ipairs(handleButtons) do
             if h.button == activeHandle then
+                lastHandleData = h
                 updatePreview(h, total)
                 break
             end
@@ -271,6 +272,25 @@ UIS.InputEnded:Connect(function(input)
                 RS.Functions.CommitResize:InvokeServer(resizeBlock, {cp, previewCF, previewSize})
             end)
         end
+        -- Resize all other multi blocks by same amount
+        if M._multiBlocks then
+            for _, block in ipairs(M._multiBlocks) do
+                if block == resizeBlock then continue end
+                local bcp = block:FindFirstChild("ColorPart")
+                if bcp then
+                    local bNewSize = Vector3.new(
+                        lastHandleData and lastHandleData.axis=="X" and math.max(0.1, bcp.Size.X + lastDragSteps * resizeStep) or bcp.Size.X,
+                        lastHandleData and lastHandleData.axis=="Y" and math.max(0.1, bcp.Size.Y + lastDragSteps * resizeStep) or bcp.Size.Y,
+                        lastHandleData and lastHandleData.axis=="Z" and math.max(0.1, bcp.Size.Z + lastDragSteps * resizeStep) or bcp.Size.Z
+                    )
+                    local actualChange = lastHandleData and lastHandleData.axis=="X" and (bNewSize.X-bcp.Size.X)
+                        or lastHandleData and lastHandleData.axis=="Y" and (bNewSize.Y-bcp.Size.Y)
+                        or (bNewSize.Z-bcp.Size.Z)
+                    local bNewCF = bcp.CFrame * CFrame.new(lastHandleData and lastHandleData.dir * (actualChange*0.5) or Vector3.new(0,0,0))
+                    pcall(function() RS.Functions.CommitResize:InvokeServer(block, {bcp, bNewCF, bNewSize}) end)
+                end
+            end
+        end
     end
     destroyPreview()
     if activeHandle and activeHandle.Parent then
@@ -280,6 +300,7 @@ UIS.InputEnded:Connect(function(input)
     activeHandle    = nil
     activeTouchId   = nil
     lastDragSteps   = 0
+    lastHandleData  = nil
     cachedScreenDir = nil
 end)
 
