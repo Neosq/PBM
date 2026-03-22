@@ -122,6 +122,70 @@ local function buildPreview(model)
     end
 end
 
+local multiGhosts = {}  -- {model, parts[]} for multi preview
+
+local function destroyMultiGhosts()
+    for _, entry in ipairs(multiGhosts) do
+        for _, p in ipairs(entry.parts) do
+            if p and p.Parent then p:Destroy() end
+        end
+        restoreOriginal()
+        -- restore each model
+        for _, desc in ipairs(entry.model:GetDescendants()) do
+            if desc:IsA("BasePart") and entry.origTransp[desc] ~= nil then
+                desc.Transparency = entry.origTransp[desc]
+            end
+        end
+    end
+    multiGhosts = {}
+end
+
+local function buildPreviewMulti(models)
+    destroyPreview(); destroyMultiGhosts()
+    for _, model in ipairs(models) do
+        local origT = {}
+        for _, desc in ipairs(model:GetDescendants()) do
+            if desc:IsA("BasePart") then
+                origT[desc] = desc.Transparency
+                desc.Transparency = 1
+            end
+        end
+        local parts = {}
+        for _, desc in ipairs(model:GetDescendants()) do
+            if desc:IsA("BasePart") and desc.Name ~= "MouseFilterPart"
+               and (origT[desc] or 0) < 1 then
+                local ghost = desc:Clone()
+                for _, child in ipairs(ghost:GetChildren()) do
+                    if not (child:IsA("SpecialMesh") or child:IsA("SurfaceAppearance")
+                        or child:IsA("Decal") or child:IsA("Texture")) then
+                        child:Destroy()
+                    end
+                end
+                ghost.Anchored=true; ghost.CanCollide=false; ghost.CastShadow=false
+                ghost.Transparency=origT[desc]
+                ghost.Name="MoveGhost"; ghost.Parent=workspace
+                table.insert(parts, ghost)
+            end
+        end
+        table.insert(multiGhosts, {model=model, parts=parts, origTransp=origT})
+    end
+end
+
+local function updatePreviewMulti(offset)
+    for _, entry in ipairs(multiGhosts) do
+        local srcs = {}
+        for _, desc in ipairs(entry.model:GetDescendants()) do
+            if desc:IsA("BasePart") and desc.Name ~= "MouseFilterPart"
+               and (entry.origTransp[desc] or 0) < 1 then
+                table.insert(srcs, desc)
+            end
+        end
+        for i, ghost in ipairs(entry.parts) do
+            if srcs[i] then ghost.CFrame = srcs[i].CFrame + offset end
+        end
+    end
+end
+
 local M = {}
 
 local function updatePreview(model, offset)
@@ -241,7 +305,12 @@ UIS.InputChanged:Connect(function(input)
     if total ~= lastMoveSteps then
         lastMoveSteps = total
         previewOffset = dragDir * (total * moveStep)
-        updatePreview(selectedBlock, previewOffset)
+        if M._multiBlocks then
+            if #multiGhosts == 0 then buildPreviewMulti(M._multiBlocks) end
+            updatePreviewMulti(previewOffset)
+        else
+            updatePreview(selectedBlock, previewOffset)
+        end
     end
 end)
 
@@ -250,60 +319,87 @@ UIS.InputEnded:Connect(function(input)
        input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
     if activeTouchId ~= nil and input ~= activeTouchId then return end
     if isDragging and selectedBlock and lastMoveSteps ~= 0 then
-        local newCF = getModelCF(selectedBlock) + previewOffset
-        pcall(function() RS.Functions.CommitMove:InvokeServer(selectedBlock, newCF) end)
+        if M._multiBlocks then
+            -- Move all selected blocks by same offset
+            for _, block in ipairs(M._multiBlocks) do
+                local cf = getModelCF(block)
+                if cf then
+                    pcall(function() RS.Functions.CommitMove:InvokeServer(block, cf + previewOffset) end)
+                end
+            end
+            -- Update anchor position
+            if M._multiAnchor then
+                M._multiAnchor.CFrame = M._multiAnchor.CFrame + previewOffset
+            end
+        else
+            local newCF = getModelCF(selectedBlock) + previewOffset
+            pcall(function() RS.Functions.CommitMove:InvokeServer(selectedBlock, newCF) end)
+        end
     end
-    destroyPreview()
+    destroyPreview(); destroyMultiGhosts()
     if activeHandle and activeHandle.Parent then
         activeHandle.BackgroundTransparency = 0.2
     end
-    isDragging    = false
-    dragDir       = nil
-    lastMoveSteps = 0
-    activeHandle  = nil
-    activeTouchId = nil
-    previewOffset = Vector3.new(0, 0, 0)
+    isDragging=false; dragDir=nil; lastMoveSteps=0
+    activeHandle=nil; activeTouchId=nil
+    previewOffset=Vector3.new(0,0,0)
 end)
 
 function M.activate(model)
     selectedBlock = model
-    local liveBox  = nil
-    local livePart = nil
     local mfp = model:FindFirstChild("MouseFilterPart")
     local cp  = model:FindFirstChild("ColorPart")
     local ref = mfp or cp or model:FindFirstChildWhichIsA("BasePart")
+    local liveBox, livePart = nil, nil
     if ref and ref:IsA("BasePart") then
         livePart = Instance.new("Part")
-        livePart.Size        = ref.Size
-        livePart.CFrame      = ref.CFrame
-        livePart.Anchored    = true
-        livePart.CanCollide  = false
-        livePart.Transparency = 1
-        livePart.Parent      = workspace
-        liveBox = Instance.new("SelectionBox")
-        liveBox.Color3        = Color3.fromRGB(140, 90, 220)
-        liveBox.LineThickness = 0.06
-        liveBox.Adornee       = livePart
-        liveBox.Parent        = workspace
+        livePart.Size=ref.Size; livePart.CFrame=ref.CFrame
+        livePart.Anchored=true; livePart.CanCollide=false
+        livePart.Transparency=1; livePart.Parent=workspace
+        liveBox=Instance.new("SelectionBox")
+        liveBox.Color3=Color3.fromRGB(140,90,220); liveBox.LineThickness=0.06
+        liveBox.Adornee=livePart; liveBox.Parent=workspace
     end
-    M.onPreviewUpdate = function(newCF, _)
-        if livePart and livePart.Parent then
-            livePart.CFrame = newCF
-        end
+    M.onPreviewUpdate=function(newCF)
+        if livePart and livePart.Parent then livePart.CFrame=newCF end
     end
-    M._liveBox  = liveBox
-    M._livePart = livePart
+    M._liveBox=liveBox; M._livePart=livePart
+    M._multiBlocks=nil
     spawnHandles(model)
+end
+
+function M.activateMulti(models)
+    if not models or #models==0 then return end
+    M.deactivate()
+    -- Compute center of all models
+    local sumPos = Vector3.new(0,0,0)
+    for _, m in ipairs(models) do
+        local cf = getModelCF(m)
+        if cf then sumPos=sumPos+cf.Position end
+    end
+    local center = sumPos / #models
+    -- Create a dummy anchor part at center for handle positioning
+    local anchor = Instance.new("Part")
+    anchor.Size=Vector3.new(4.5,4.5,4.5); anchor.CFrame=CFrame.new(center)
+    anchor.Anchored=true; anchor.CanCollide=false; anchor.Transparency=1
+    anchor.Parent=workspace
+    selectedBlock=anchor
+    M._multiBlocks=models
+    M._multiAnchor=anchor
+    M.onPreviewUpdate=nil
+    spawnHandles(anchor)
 end
 
 function M.deactivate()
     selectedBlock = nil
     if M._liveBox  and M._liveBox.Parent  then M._liveBox:Destroy()  end
     if M._livePart and M._livePart.Parent then M._livePart:Destroy() end
-    M._liveBox = nil; M._livePart = nil
-    M.onPreviewUpdate = nil
+    if M._multiAnchor and M._multiAnchor.Parent then M._multiAnchor:Destroy() end
+    M._liveBox=nil; M._livePart=nil
+    M._multiBlocks=nil; M._multiAnchor=nil
+    M.onPreviewUpdate=nil
     clearHandles()
-    destroyPreview()
+    destroyPreview(); destroyMultiGhosts()
 end
 
 function M.setStep(step)
