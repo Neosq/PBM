@@ -122,6 +122,7 @@ local function destroyPreview()
     previewParts = {}
     previewCF    = nil
     restoreOriginal()
+    restoreMultiOriginal()
 end
 
 local function buildPreview(model)
@@ -146,6 +147,44 @@ local function buildPreview(model)
     end
 end
 
+local multiOrigTransp = {}
+
+local function buildPreviewMulti(models)
+    destroyPreview()
+    multiOrigTransp = {}
+    for _, model in ipairs(models) do
+        for _, desc in ipairs(model:GetDescendants()) do
+            if desc:IsA("BasePart") then
+                multiOrigTransp[desc] = desc.Transparency
+                desc.Transparency = 1
+            end
+        end
+        for _, desc in ipairs(model:GetDescendants()) do
+            if desc:IsA("BasePart") and desc.Name ~= "MouseFilterPart"
+               and (multiOrigTransp[desc] or 0) < 1 then
+                local ghost = desc:Clone()
+                for _, child in ipairs(ghost:GetChildren()) do
+                    if not (child:IsA("SpecialMesh") or child:IsA("SurfaceAppearance")
+                        or child:IsA("Decal") or child:IsA("Texture")) then
+                        child:Destroy()
+                    end
+                end
+                ghost.Anchored=true; ghost.CanCollide=false; ghost.CastShadow=false
+                ghost.Transparency=multiOrigTransp[desc]
+                ghost.Name="RotateGhost"; ghost.Parent=workspace
+                table.insert(previewParts, ghost)
+            end
+        end
+    end
+end
+
+local function restoreMultiOriginal()
+    for part, tr in pairs(multiOrigTransp) do
+        if part and part.Parent then part.Transparency = tr end
+    end
+    multiOrigTransp = {}
+end
+
 local M = {}
 
 local function updatePreview(model, axDef, totalSteps)
@@ -154,17 +193,41 @@ local function updatePreview(model, axDef, totalSteps)
     if not cf then return end
     local angle = math.rad(rotateStep * totalSteps)
     local rotCF = CFrame.fromAxisAngle(axDef.rotAxis, angle)
-    local pos   = cf.Position
-    local newCF = CFrame.new(pos) * rotCF * (cf - pos)
-    previewCF   = newCF
-    local srcs  = getVisualParts(model)
-    for i, ghost in ipairs(previewParts) do
-        local src = srcs[i]
-        if not src then continue end
-        ghost.CFrame = newCF * cf:ToObjectSpace(src.CFrame)
-    end
-    if M.onPreviewUpdate then
-        M.onPreviewUpdate(newCF, nil)
+    if M._multiBlocks then
+        -- Update preview for all multi blocks
+        local ghostIdx = 1
+        for _, block in ipairs(M._multiBlocks) do
+            local bcf = getModelCF(block); if not bcf then continue end
+            local bpos = bcf.Position
+            local newBCF = CFrame.new(bpos) * rotCF * (bcf - bpos)
+            for _, desc in ipairs(block:GetDescendants()) do
+                if desc:IsA("BasePart") and desc.Name ~= "MouseFilterPart"
+                   and (multiOrigTransp[desc] or 0) < 1 then
+                    if previewParts[ghostIdx] then
+                        previewParts[ghostIdx].CFrame = newBCF * bcf:ToObjectSpace(desc.CFrame)
+                    end
+                    ghostIdx = ghostIdx + 1
+                end
+            end
+            -- Update liveBox
+            if M._multiLiveParts then
+                for _, lpe in ipairs(M._multiLiveParts) do
+                    if lpe.model == block and lpe.part and lpe.part.Parent then
+                        lpe.part.CFrame = newBCF
+                    end
+                end
+            end
+        end
+    else
+        local pos   = cf.Position
+        local newCF = CFrame.new(pos) * rotCF * (cf - pos)
+        previewCF   = newCF
+        local srcs  = getVisualParts(model)
+        for i, ghost in ipairs(previewParts) do
+            local src = srcs[i]; if not src then continue end
+            ghost.CFrame = newCF * cf:ToObjectSpace(src.CFrame)
+        end
+        if M.onPreviewUpdate then M.onPreviewUpdate(newCF, nil) end
     end
 end
 
@@ -304,7 +367,11 @@ RunService.RenderStepped:Connect(function(dt)
                 local cf = getModelCF(selectedBlock)
                 if cf then cachedScreenDir = getDragDir(cf, cachedAxDef) end
             end
-            buildPreview(selectedBlock)
+            if M._multiBlocks then
+                buildPreviewMulti(M._multiBlocks)
+            else
+                buildPreview(selectedBlock)
+            end
         end
     end
 
@@ -431,6 +498,15 @@ function M.deactivate()
     selectedBlock = nil
     if liveBox  then liveBox:Destroy();  liveBox  = nil end
     if livePart then livePart:Destroy(); livePart = nil end
+    if M._multiAnchor and M._multiAnchor.Parent then M._multiAnchor:Destroy() end
+    M._multiAnchor = nil
+    if M._multiLiveParts then
+        for _, lpe in ipairs(M._multiLiveParts) do
+            if lpe.box  and lpe.box.Parent  then lpe.box:Destroy()  end
+            if lpe.part and lpe.part.Parent then lpe.part:Destroy() end
+        end
+        M._multiLiveParts = {}
+    end
     M.onPreviewUpdate = nil
     M._multiBlocks = nil
     clearHandles()
@@ -439,12 +515,43 @@ end
 
 function M.activateMulti(models)
     if not models or #models==0 then return end
+    M.deactivate()
     M._multiBlocks = models
-    M.activate(models[#models])
+    -- Compute center of all models
+    local sumPos = Vector3.new(0,0,0)
+    for _, m in ipairs(models) do
+        local cf = getModelCF(m); if cf then sumPos=sumPos+cf.Position end
+    end
+    local center = sumPos / #models
+    -- Create anchor at center for handle positioning
+    local anchor = Instance.new("Part")
+    anchor.Size=Vector3.new(4.5,4.5,4.5); anchor.CFrame=CFrame.new(center)
+    anchor.Anchored=true; anchor.CanCollide=false; anchor.Transparency=1
+    anchor.Parent=workspace
+    selectedBlock = anchor
+    M._multiAnchor = anchor
+    -- Create livePart+liveBox per block
+    M._multiLiveParts = {}
+    for _, m in ipairs(models) do
+        local mfp = m:FindFirstChild("MouseFilterPart")
+        local sz = mfp and mfp.Size or Vector3.new(4.5,4.5,4.5)
+        local cf = getModelCF(m)
+        if cf then
+            local lp = Instance.new("Part")
+            lp.Size=sz; lp.CFrame=cf
+            lp.Anchored=true; lp.CanCollide=false; lp.Transparency=1
+            lp.Parent=workspace
+            local lb = Instance.new("SelectionBox")
+            lb.Color3=Color3.fromRGB(255,100,160); lb.LineThickness=0.06
+            lb.Adornee=lp; lb.Parent=workspace
+            table.insert(M._multiLiveParts, {part=lp, box=lb, model=m})
+        end
+    end
+    M.onPreviewUpdate = nil
+    spawnHandles(anchor)
 end
 
 function M.setStep(step)
-    -- Rotate uses degrees, not units. Keep default 45 unless explicitly set via setRotateStep
 end
 
 function M.setRotateStep(deg)
