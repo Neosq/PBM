@@ -325,6 +325,11 @@ function M.deactivate()
     destroyPreview()
 end
 
+function M.activateMulti(models)
+    if not models or #models==0 then return end
+    M.activate(models[#models])
+end
+
 function M.setStep(step)
     resizeStep = step
 end
