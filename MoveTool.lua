@@ -416,7 +416,7 @@ function M.activateMulti(models)
             table.insert(M._multiLiveParts, {part=lp, box=lb, model=m})
         end
     end
-    M.onPreviewUpdate=nil
+    M.onPreviewUpdate = nil
     spawnHandles(anchor)
 end
 
