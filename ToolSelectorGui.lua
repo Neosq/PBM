@@ -392,7 +392,7 @@ local function clearSelectionBox()
     if selectionBox then selectionBox:Destroy(); selectionBox = nil end
 end
 
-local gridValue = 1
+local gridValue = 4.5
 
 local gridFrame = Instance.new("Frame")
 gridFrame.Size                  = UDim2.new(0, 80, 0, 30)
@@ -408,7 +408,7 @@ local gridBox = Instance.new("TextBox")
 gridBox.Size             = UDim2.new(1, 0, 1, 0)
 gridBox.BackgroundColor3 = Color3.fromRGB(12, 8, 24)
 gridBox.BorderSizePixel  = 0
-gridBox.Text             = "1"
+gridBox.Text             = "4.5"
 gridBox.TextColor3       = Color3.fromRGB(255, 248, 255)
 gridBox.Font             = Enum.Font.GothamBold
 gridBox.TextSize         = 18
@@ -425,16 +425,11 @@ end)
 gridBox.FocusLost:Connect(function()
     TweenService:Create(gridBox, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(12, 8, 24) }):Play()
     local num = tonumber(gridBox.Text)
-    if not num then
-        gridValue = 1
-    else
-        num = math.floor(num + 0.5)
-        if num < 1 then num = 1 end
-        if num > 1000 then num = 1000 end
-        gridValue = num
-    end
+    if not num or num < 0.1 then num = 0.1 end
+    if num > 100 then num = 100 end
+    gridValue = num
     gridBox.Text = tostring(gridValue)
-    if _G.PBM then _G.PBM.applyStep(gridValue / 10) end
+    if _G.PBM then _G.PBM.applyStep(gridValue) end
 end)
 
 local function updateUI()
@@ -515,5 +510,5 @@ end)
 updateUI()
 
 _G.ToolSelectorGui = {
-    getGridStep = function() return gridValue / 10 end
+    getGridStep = function() return gridValue end
 }
