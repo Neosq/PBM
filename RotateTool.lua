@@ -171,6 +171,20 @@ end
 local function commitRotate()
     if not selectedBlock or not previewCF then return end
     pcall(function() RS.Functions.CommitMove:InvokeServer(selectedBlock, previewCF) end)
+    -- Also rotate all other multi blocks by the same angle/axis
+    if M._multiBlocks and cachedAxDef and lastSteps ~= 0 then
+        local angle = math.rad(rotateStep * lastSteps)
+        local rotCF = CFrame.fromAxisAngle(cachedAxDef.rotAxis, angle)
+        for _, block in ipairs(M._multiBlocks) do
+            if block == selectedBlock then continue end
+            local cf = getModelCF(block)
+            if cf then
+                local pos = cf.Position
+                local newCF = CFrame.new(pos) * rotCF * (cf - pos)
+                pcall(function() RS.Functions.CommitMove:InvokeServer(block, newCF) end)
+            end
+        end
+    end
 end
 
 local screenGui = Instance.new("ScreenGui")
@@ -419,16 +433,19 @@ function M.deactivate()
     if liveBox  then liveBox:Destroy();  liveBox  = nil end
     if livePart then livePart:Destroy(); livePart = nil end
     M.onPreviewUpdate = nil
+    M._multiBlocks = nil
     clearHandles()
     destroyPreview()
 end
 
 function M.activateMulti(models)
     if not models or #models==0 then return end
+    M._multiBlocks = models
     M.activate(models[#models])
 end
 
 function M.setStep(step)
+    -- Rotate uses degrees, not units. Keep default 45 unless explicitly set via setRotateStep
 end
 
 function M.setRotateStep(deg)
