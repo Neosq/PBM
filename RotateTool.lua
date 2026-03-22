@@ -104,6 +104,15 @@ local function restoreOriginal()
     originalTransp = {}
 end
 
+local multiOrigTransp = {}
+
+local function restoreMultiOriginal()
+    for part, tr in pairs(multiOrigTransp) do
+        if part and part.Parent then part.Transparency = tr end
+    end
+    multiOrigTransp = {}
+end
+
 local function getVisualParts(model)
     local out = {}
     for _, desc in ipairs(model:GetDescendants()) do
@@ -147,9 +156,7 @@ local function buildPreview(model)
     end
 end
 
-local multiOrigTransp = {}
-
-local function buildPreviewMulti(models)
+local M = {}
     destroyPreview()
     multiOrigTransp = {}
     for _, model in ipairs(models) do
@@ -178,11 +185,33 @@ local function buildPreviewMulti(models)
     end
 end
 
-local function restoreMultiOriginal()
-    for part, tr in pairs(multiOrigTransp) do
-        if part and part.Parent then part.Transparency = tr end
-    end
+local function buildPreviewMulti(models)
+    destroyPreview()
     multiOrigTransp = {}
+    for _, model in ipairs(models) do
+        for _, desc in ipairs(model:GetDescendants()) do
+            if desc:IsA("BasePart") then
+                multiOrigTransp[desc] = desc.Transparency
+                desc.Transparency = 1
+            end
+        end
+        for _, desc in ipairs(model:GetDescendants()) do
+            if desc:IsA("BasePart") and desc.Name ~= "MouseFilterPart"
+               and (multiOrigTransp[desc] or 0) < 1 then
+                local ghost = desc:Clone()
+                for _, child in ipairs(ghost:GetChildren()) do
+                    if not (child:IsA("SpecialMesh") or child:IsA("SurfaceAppearance")
+                        or child:IsA("Decal") or child:IsA("Texture")) then
+                        child:Destroy()
+                    end
+                end
+                ghost.Anchored=true; ghost.CanCollide=false; ghost.CastShadow=false
+                ghost.Transparency=multiOrigTransp[desc]
+                ghost.Name="RotateGhost"; ghost.Parent=workspace
+                table.insert(previewParts, ghost)
+            end
+        end
+    end
 end
 
 local M = {}
@@ -552,6 +581,7 @@ function M.activateMulti(models)
 end
 
 function M.setStep(step)
+    -- Rotate uses degrees, not units. Keep default 45 unless explicitly set via setRotateStep
 end
 
 function M.setRotateStep(deg)
