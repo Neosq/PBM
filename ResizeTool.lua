@@ -119,9 +119,9 @@ local function updatePreview(handleData, totalSteps)
     local origSize = cp.Size
     local change   = totalSteps * resizeStep
     local newSize  = Vector3.new(
-        axis == "X" and math.max(0.1, origSize.X + change) or origSize.X,
-        axis == "Y" and math.max(0.1, origSize.Y + change) or origSize.Y,
-        axis == "Z" and math.max(0.1, origSize.Z + change) or origSize.Z
+        axis == "X" and math.max(4.5, origSize.X + change) or origSize.X,
+        axis == "Y" and math.max(4.5, origSize.Y + change) or origSize.Y,
+        axis == "Z" and math.max(4.5, origSize.Z + change) or origSize.Z
     )
     local actualChange
     if axis == "X" then actualChange = newSize.X - origSize.X
