@@ -194,7 +194,6 @@ local function updatePreview(model, axDef, totalSteps)
     local angle = math.rad(rotateStep * totalSteps)
     local rotCF = CFrame.fromAxisAngle(axDef.rotAxis, angle)
     if M._multiBlocks then
-        -- Update preview for all multi blocks
         local ghostIdx = 1
         for _, block in ipairs(M._multiBlocks) do
             local bcf = getModelCF(block); if not bcf then continue end
@@ -209,7 +208,6 @@ local function updatePreview(model, axDef, totalSteps)
                     ghostIdx = ghostIdx + 1
                 end
             end
-            -- Update liveBox
             if M._multiLiveParts then
                 for _, lpe in ipairs(M._multiLiveParts) do
                     if lpe.model == block and lpe.part and lpe.part.Parent then
@@ -451,7 +449,6 @@ UIS.InputEnded:Connect(function(input)
     if activeTouchId ~= nil and input ~= activeTouchId then return end
     if isDragging and lastSteps ~= 0 then
         commitRotate()
-        -- Update livePart positions to match new rotated positions
         if M._multiBlocks and M._multiLiveParts and cachedAxDef then
             local angle = math.rad(rotateStep * lastSteps)
             local rotCF = CFrame.fromAxisAngle(cachedAxDef.rotAxis, angle)
@@ -532,20 +529,17 @@ function M.activateMulti(models)
     if not models or #models==0 then return end
     M.deactivate()
     M._multiBlocks = models
-    -- Compute center of all models
     local sumPos = Vector3.new(0,0,0)
     for _, m in ipairs(models) do
         local cf = getModelCF(m); if cf then sumPos=sumPos+cf.Position end
     end
     local center = sumPos / #models
-    -- Create anchor at center for handle positioning
     local anchor = Instance.new("Part")
     anchor.Size=Vector3.new(4.5,4.5,4.5); anchor.CFrame=CFrame.new(center)
     anchor.Anchored=true; anchor.CanCollide=false; anchor.Transparency=1
     anchor.Parent=workspace
     selectedBlock = anchor
     M._multiAnchor = anchor
-    -- Create livePart+liveBox per block
     M._multiLiveParts = {}
     for _, m in ipairs(models) do
         local mfp = m:FindFirstChild("MouseFilterPart")
@@ -567,7 +561,7 @@ function M.activateMulti(models)
 end
 
 function M.setStep(step)
-    -- Rotate uses degrees, not units. Keep default 45 unless explicitly set via setRotateStep
+    rotateStep = math.max(1, math.floor(step))
 end
 
 function M.setRotateStep(deg)
