@@ -12,15 +12,25 @@ local CommitResize= Functions:WaitForChild("CommitResize")
 local DestroyBlock= Functions:WaitForChild("DestroyBlock")
 
 local function findTemplate(name)
-    local searches = {
-        RS:FindFirstChild("Blocks"),
-        RS:FindFirstChild("BlocksCutscene"),
-    }
-    for _, folder in ipairs(searches) do
-        if folder then
-            local found = folder:FindFirstChild(name, true)
-            if found then return found end
+    -- Use CPT_Utils if available (same server)
+    if _G.CPT_Utils then return _G.CPT_Utils.findBlockInRS(name) end
+    -- Fallback: same logic as findBlockInRS
+    local cats = {"Basic","Decoration","Events","Items","Lights","Links"}
+    local blocks = RS:FindFirstChild("Blocks")
+    if blocks then
+        for _, cat in ipairs(cats) do
+            local f = blocks:FindFirstChild(cat)
+            if f then
+                local b = f:FindFirstChild(name)
+                if b then return b:FindFirstChild(name) or b end
+            end
         end
+    end
+    local npcs = RS:FindFirstChild("BlocksCutscene")
+    npcs = npcs and npcs:FindFirstChild("NPCs")
+    if npcs then
+        local b = npcs:FindFirstChild(name)
+        if b then return b:FindFirstChild(name) or b end
     end
     return nil
 end
