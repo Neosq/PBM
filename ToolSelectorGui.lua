@@ -20,6 +20,7 @@ local SUBTITLE_COLORS = {
     Move   = Color3.fromRGB(170, 100, 255),
     Resize = Color3.fromRGB(255, 160, 50),
     Rotate = Color3.fromRGB(255, 100, 160),
+    Copy   = Color3.fromRGB(0,   210, 220),
     None   = Color3.fromRGB(160, 155, 170),
 }
 
@@ -27,6 +28,7 @@ local SELECTION_COLORS = {
     Move   = Color3.fromRGB(170, 100, 255),
     Resize = Color3.fromRGB(255, 160, 50),
     Rotate = Color3.fromRGB(255, 100, 160),
+    Copy   = Color3.fromRGB(0,   210, 220),
     None   = Color3.fromRGB(140, 135, 155),
 }
 
@@ -37,9 +39,10 @@ local TOOLS = {
     { name="Move",   sprite=SPRITE,        rectOffset=Vector2.new(360,144), rectSize=Vector2.new(72,72) },
     { name="Rotate", sprite=SPRITE_ROTATE, rectOffset=nil, rectSize=nil },
     { name="Resize", sprite=SPRITE,        rectOffset=Vector2.new(288,144), rectSize=Vector2.new(72,72) },
+    { name="Copy",   sprite=SPRITE,        rectOffset=Vector2.new(216,144), rectSize=Vector2.new(72,72) },
 }
 
-local BTN_COUNT  = 4
+local BTN_COUNT  = 5
 local BTN_SIZE   = 54
 local GAP        = 6
 local PAD        = 10
@@ -349,7 +352,7 @@ cpBtn.MouseButton1Click:Connect(function()
     if not _G.CopyPasteTool then
         task.spawn(function()
             task.wait()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Neosq/CPT/refs/heads/main/CPT_Loader.lua"))()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/JustUser-ALT/CPT/refs/heads/main/CPT_Loader.lua"))()
         end)
     end
 end)
