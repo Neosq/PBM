@@ -209,9 +209,13 @@ local function mkBtn(parent, text, color)
 end
 
 local function doCopy()
+    print("[CopyTool] doCopy called, selectedModel:", selectedModel)
     if not selectedModel then return end
-    local ref=getModelRef(selectedModel); if not ref then return end
+    local ref=getModelRef(selectedModel)
+    print("[CopyTool] ref:", ref)
+    if not ref then return end
     local t=findTemplate(selectedModel.Name)
+    print("[CopyTool] template:", t, "name:", selectedModel.Name)
     if not t then return end
     local cp=selectedModel:FindFirstChild("ColorPart")
     local bc=cp and cp.BrickColor or BrickColor.new("Medium stone grey")
@@ -219,6 +223,7 @@ local function doCopy()
     safeOff=safeOff+6
     local nb
     pcall(function() nb=PlaceBlock:InvokeServer(t,SAFE_SPAWN*CFrame.new(safeOff,0,0),bc,mat) end)
+    print("[CopyTool] PlaceBlock result:", nb)
     if not nb then return end
     pcall(function() CommitMove:InvokeServer(nb,ref.CFrame) end)
     if cp then
@@ -262,7 +267,7 @@ function M.activate(model)
     copyHudGui=g
     local copyBtn=mkBtn(f,"Copy",Color3.fromRGB(0,175,185))
     copyBtn.MouseButton1Click:Connect(function()
-        task.delay(0.05, doCopy)
+        task.spawn(doCopy)
     end)
 end
 
