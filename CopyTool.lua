@@ -5,8 +5,26 @@ local RunService = game:GetService("RunService")
 local player     = Players.LocalPlayer
 local camera     = workspace.CurrentCamera
 
-local M = {}
+local Functions   = RS:WaitForChild("Functions")
+local PlaceBlock  = Functions:WaitForChild("PlaceBlock")
+local CommitMove  = Functions:WaitForChild("CommitMove")
+local CommitResize= Functions:WaitForChild("CommitResize")
+local DestroyBlock= Functions:WaitForChild("DestroyBlock")
 
+local function findTemplate(name)
+    local searches = {
+        RS:FindFirstChild("Blocks"),
+        RS:FindFirstChild("BlocksCutscene"),
+    }
+    for _, folder in ipairs(searches) do
+        if folder then
+            local found = folder:FindFirstChild(name, true)
+            if found then return found end
+        end
+    end
+    return nil
+end
+local M = {}
 local CYAN        = Color3.fromRGB(0, 210, 220)
 local DRAG_SENS   = 0.08
 local DRAG_THRESH = 8
@@ -193,23 +211,22 @@ end
 local function doCopy()
     if not selectedModel then return end
     local ref=getModelRef(selectedModel); if not ref then return end
-    local t=RS.Blocks:FindFirstChild(selectedModel.Name,true)
-          or RS.BlocksCutscene:FindFirstChild(selectedModel.Name,true)
+    local t=findTemplate(selectedModel.Name)
     if not t then return end
     local cp=selectedModel:FindFirstChild("ColorPart")
     local bc=cp and cp.BrickColor or BrickColor.new("Medium stone grey")
     local mat=cp and cp.Material or Enum.Material.Plastic
     safeOff=safeOff+6
     local nb
-    pcall(function() nb=RS.Functions.PlaceBlock:InvokeServer(t,SAFE_SPAWN*CFrame.new(safeOff,0,0),bc,mat) end)
+    pcall(function() nb=PlaceBlock:InvokeServer(t,SAFE_SPAWN*CFrame.new(safeOff,0,0),bc,mat) end)
     if not nb then return end
-    pcall(function() RS.Functions.CommitMove:InvokeServer(nb,ref.CFrame) end)
+    pcall(function() CommitMove:InvokeServer(nb,ref.CFrame) end)
     if cp then
         local sz=cp.Size
         if math.abs(sz.X-4.5)>0.1 or math.abs(sz.Y-4.5)>0.1 or math.abs(sz.Z-4.5)>0.1 then
             task.wait(0.05)
             local newRef=getModelRef(nb)
-            if newRef then pcall(function() RS.Functions.CommitResize:InvokeServer(nb,{newRef,ref.CFrame,sz}) end) end
+            if newRef then pcall(function() CommitResize:InvokeServer(nb,{newRef,ref.CFrame,sz}) end) end
         end
     end
     copiedBlock=nb; previewOffset=Vector3.new(0,0,0)
@@ -225,11 +242,11 @@ local function doCopy()
     pasteBtn.MouseButton1Click:Connect(function()
         if not copiedBlock then return end
         local r=getModelRef(copiedBlock)
-        if r then pcall(function() RS.Functions.CommitMove:InvokeServer(copiedBlock,r.CFrame+previewOffset) end) end
+        if r then pcall(function() CommitMove:InvokeServer(copiedBlock,r.CFrame+previewOffset) end) end
         M.deactivate()
     end)
     cancelBtn.MouseButton1Click:Connect(function()
-        if copiedBlock then pcall(function() RS.Functions.DestroyBlock:InvokeServer(copiedBlock) end) end
+        if copiedBlock then pcall(function() DestroyBlock:InvokeServer(copiedBlock) end) end
         M.deactivate()
     end)
 end
