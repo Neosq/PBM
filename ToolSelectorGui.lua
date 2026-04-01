@@ -428,7 +428,7 @@ end)
 gridBox.FocusLost:Connect(function()
     TweenService:Create(gridBox, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(12, 8, 24) }):Play()
     local num = tonumber(gridBox.Text)
-    if not num or num < 0.1 then num = 0.1 end
+    if not num or num < 0.01 then num = 0.01 end
     if num > 100 then num = 100 end
     gridValue = num
     gridBox.Text = tostring(gridValue)
