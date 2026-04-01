@@ -12,9 +12,7 @@ local CommitResize= Functions:WaitForChild("CommitResize")
 local DestroyBlock= Functions:WaitForChild("DestroyBlock")
 
 local function findTemplate(name)
-    -- Use CPT_Utils if available (same server)
     if _G.CPT_Utils then return _G.CPT_Utils.findBlockInRS(name) end
-    -- Fallback: same logic as findBlockInRS
     local cats = {"Basic","Decoration","Events","Items","Lights","Links"}
     local blocks = RS:FindFirstChild("Blocks")
     if blocks then
@@ -51,11 +49,12 @@ local dragStart     = nil
 local lastSteps     = 0
 local previewOffset = Vector3.new(0,0,0)
 
--- State
-local selectedModel = nil  -- block user tapped (just selected, not copied yet)
-local copiedBlock   = nil  -- the placed copy
+local selectedModel = nil
+local copiedBlock   = nil
 local livePart      = nil
 local liveBox       = nil
+local baseOffset    = Vector3.new(0,0,0)
+local baseSteps     = 0  
 
 local AXES = {
     {dir=Vector3.new( 1,0,0)}, {dir=Vector3.new(-1,0,0)},
@@ -78,7 +77,6 @@ local function getModelRef(model)
         or model:FindFirstChildWhichIsA("BasePart")
 end
 
--- Live part (selection box adornee)
 local function destroyLiveBox()
     if liveBox  and liveBox.Parent  then liveBox:Destroy()  end
     if livePart and livePart.Parent then livePart:Destroy() end
@@ -104,7 +102,6 @@ local function updateLiveBox()
     livePart.Size   = ref.Size
 end
 
--- Handles (shown only after Copy is pressed)
 local function clearHandles()
     for _, h in ipairs(handleButtons) do
         if h.btn and h.btn.Parent then h.btn:Destroy() end
@@ -157,16 +154,19 @@ UIS.InputChanged:Connect(function(input)
     if input.UserInputType~=Enum.UserInputType.Touch
     and input.UserInputType~=Enum.UserInputType.MouseMovement then return end
     local ref=getModelRef(copiedBlock); if not ref then return end
+    if not dragStart then return end
     local cur=Vector2.new(input.Position.X,input.Position.Y)
     local delta=cur-dragStart
-    local s0=camera:WorldToScreenPoint(ref.CFrame.Position)
-    local s1=camera:WorldToScreenPoint(ref.CFrame.Position+dragDir*10)
+    local refPos = ref.CFrame.Position + baseOffset
+    local s0=camera:WorldToScreenPoint(refPos)
+    local s1=camera:WorldToScreenPoint(refPos+dragDir*10)
     local sd=Vector2.new(s1.X-s0.X,s1.Y-s0.Y)
     if sd.Magnitude<1 then return end
     local proj=delta:Dot(sd/sd.Magnitude)
-    local steps=math.floor(proj*DRAG_SENS/moveStep)
-    if steps~=lastSteps then
-        lastSteps=steps; previewOffset=dragDir*(steps*moveStep)
+    local deltaSt=math.floor(proj*DRAG_SENS/moveStep)
+    if deltaSt~=lastSteps then
+        lastSteps=deltaSt
+        previewOffset=baseOffset+dragDir*(deltaSt*moveStep)
         updateLiveBox()
     end
 end)
@@ -179,9 +179,10 @@ UIS.InputEnded:Connect(function(input)
     isDragging=false
     if activeHandle then activeHandle.BackgroundTransparency=0.2 end
     activeHandle=nil; activeTouchId=nil
+    baseOffset=previewOffset
+    lastSteps=0; dragStart=nil
 end)
 
--- HUDs
 local copyHudGui  = nil
 local pasteHudGui = nil
 
@@ -244,12 +245,10 @@ local function doCopy()
             if newRef then pcall(function() CommitResize:InvokeServer(nb,{newRef,ref.CFrame,sz}) end) end
         end
     end
-    copiedBlock=nb; previewOffset=Vector3.new(0,0,0)
+    copiedBlock=nb; previewOffset=Vector3.new(0,0,0); baseOffset=Vector3.new(0,0,0)
     destroyCopyHud()
-    -- Switch liveBox to copiedBlock
     createLiveBox(nb)
     spawnHandles()
-    -- Show paste HUD
     local g,f=mkHudBase(220)
     pasteHudGui=g
     local pasteBtn=mkBtn(f,"Paste", Color3.fromRGB(0,175,185))
@@ -288,6 +287,7 @@ function M.deactivate()
     destroyPasteHud()
     selectedModel=nil; copiedBlock=nil
     previewOffset=Vector3.new(0,0,0)
+    baseOffset=Vector3.new(0,0,0)
 end
 
 function M.setStep(step)
